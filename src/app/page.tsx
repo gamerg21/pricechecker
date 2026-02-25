@@ -1,64 +1,263 @@
+"use client";
+
 import Image from "next/image";
+import {
+  ChangeEvent,
+  useCallback,
+  KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+type ProductRecord = {
+  id: string;
+  barcode: string;
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  imageUrl: string;
+  updatedAt: string;
+};
+
+type LookupState = {
+  loading: boolean;
+  error: string | null;
+  product: ProductRecord | null;
+};
+
+const initialState: LookupState = {
+  loading: false,
+  error: null,
+  product: null,
+};
 
 export default function Home() {
+  const [barcode, setBarcode] = useState("");
+  const [state, setState] = useState<LookupState>(initialState);
+  const [lastSearchedBarcode, setLastSearchedBarcode] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const requestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const updatedAtLabel = state.product?.updatedAt
+    ? new Date(state.product.updatedAt).toLocaleString()
+    : null;
+
+  const runLookup = useCallback(async (rawBarcode: string) => {
+    const normalizedBarcode = rawBarcode.trim();
+    if (!normalizedBarcode) {
+      if (mountedRef.current) {
+        setState({ loading: false, error: null, product: null });
+      }
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    if (mountedRef.current) {
+      setLastSearchedBarcode(normalizedBarcode);
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+    }
+
+    try {
+      const response = await fetch(
+        `/api/products?barcode=${encodeURIComponent(normalizedBarcode)}`,
+        { method: "GET" },
+      );
+
+      if (!response.ok) {
+        if (requestId !== requestIdRef.current || !mountedRef.current) return;
+        const body = (await response.json()) as { error?: string };
+        setState({
+          loading: false,
+          error: body.error ?? "Unable to find product.",
+          product: null,
+        });
+        return;
+      }
+
+      const body = (await response.json()) as { product: ProductRecord };
+      if (requestId !== requestIdRef.current || !mountedRef.current) return;
+      setState({
+        loading: false,
+        error: null,
+        product: body.product,
+      });
+    } catch {
+      if (requestId !== requestIdRef.current || !mountedRef.current) return;
+      setState({
+        loading: false,
+        error: "Lookup failed. Check local server connectivity.",
+        product: null,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const normalized = barcode.trim();
+    if (!normalized) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (normalized !== lastSearchedBarcode) {
+        setBarcode("");
+        setLastSearchedBarcode(normalized);
+        void runLookup(normalized);
+      }
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [barcode, lastSearchedBarcode, runLookup]);
+
+  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    const normalized = barcode.trim();
+    if (!normalized) {
+      return;
+    }
+    setBarcode("");
+    setLastSearchedBarcode(normalized);
+    void runLookup(normalized);
+  }
+
+  function handleBarcodeChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value;
+    setBarcode(nextValue);
+
+    if (!nextValue.trim()) {
+      setLastSearchedBarcode("");
+      setState(initialState);
+      return;
+    }
+
+    // Always clear previous result while new scan input is arriving.
+    setState({ loading: false, error: null, product: null });
+  }
+
+  function clearAndRefocus() {
+    setBarcode("");
+    setLastSearchedBarcode("");
+    setState(initialState);
+    inputRef.current?.focus();
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div
+      className="min-h-svh bg-slate-100 p-3 font-sans text-slate-900"
+      data-kiosk
+    >
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl bg-white p-4 shadow-md">
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">Price Checker</h1>
+          <p className="text-sm text-slate-600">
+            Scan product barcode to view item details and price.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        </header>
+
+        <form className="space-y-2" onSubmit={(event) => event.preventDefault()}>
+          <label className="text-sm font-semibold" htmlFor="barcode">
+            Barcode
+          </label>
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              id="barcode"
+              name="barcode"
+              autoFocus
+              autoComplete="off"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base outline-none ring-indigo-500 focus:ring-2"
+              inputMode="none"
+              value={barcode}
+              onChange={handleBarcodeChange}
+              onKeyDown={handleInputKeyDown}
+              placeholder="Scan barcode here"
+              title="Focus here and scan; keyboard is suppressed when possible"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <div className="flex min-w-24 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
+              {state.loading ? "Checking..." : "Auto"}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              type="button"
+              onClick={clearAndRefocus}
+            >
+              Clear
+            </button>
+            <span className="self-center text-xs text-slate-500">
+              Scanner types into the focused field. Keyboard popup? Disable it in
+              device or scanner settings.
+            </span>
+          </div>
+        </form>
+
+        {state.error ? (
+          <section className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+            <p className="text-rose-700">{state.error}</p>
+          </section>
+        ) : null}
+
+        {state.product ? (
+          <section className="overflow-hidden rounded-xl border border-slate-200">
+            <div className="grid grid-cols-[minmax(8.5rem,14rem)_1fr]">
+              <div className="relative min-h-40 bg-slate-200">
+                {state.product.imageUrl ? (
+                  <Image
+                    src={state.product.imageUrl}
+                    alt={state.product.name}
+                    fill
+                    sizes="40vw"
+                    className="object-cover"
+                    priority
+                    unoptimized={!state.product.imageUrl.startsWith("https://images.unsplash.com")}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-slate-500">
+                    No image
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5 p-3">
+                <h2 className="text-xl font-bold">{state.product.name}</h2>
+                <p className="text-sm text-slate-600">{state.product.description}</p>
+                <p className="text-3xl font-extrabold text-indigo-700">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: state.product.currency,
+                  }).format(state.product.price)}
+                </p>
+                <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
+                  <p>
+                    <strong>SKU:</strong> {state.product.sku}
+                  </p>
+                  <p>
+                    <strong>Barcode:</strong> {state.product.barcode}
+                  </p>
+                  {updatedAtLabel ? (
+                    <p>
+                      <strong>Last Sync:</strong> {updatedAtLabel}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </main>
     </div>
   );

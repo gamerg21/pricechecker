@@ -23,6 +23,11 @@
 # misc
 .DS_Store
 *.pem
+*.log
+*.dump
+/tmp
+/temp
+.cache
 
 # debug
 npm-debug.log*
@@ -30,8 +35,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (do not commit real .env)
 .env*
+!.env.example
+
+# local sqlite data (do not commit DB or WAL/SHM)
+/data/
+*.db
+*.db-wal
+*.db-shm
 
 # vercel
 .vercel
