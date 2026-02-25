@@ -135,4 +135,3 @@ So far the app is **kiosk-ready**: single page, no in-app navigation, full-scree
 
 - Current data storage is persistent local SQLite.
 - Next phase: add Celigo/NetSuite payload mapping and scheduled sync jobs.
-- Before publishing the repo, see **[PUBLISH_CHECKLIST.md](PUBLISH_CHECKLIST.md)**.

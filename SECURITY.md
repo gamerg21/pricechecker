@@ -19,4 +19,4 @@ We apply security fixes to the current main branch. If you depend on an older re
 
 - This app runs as a store-local price checker; it does not authenticate end users.
 - The optional `SYNC_API_KEY` protects the sync endpoint; use a strong value and keep it secret.
-- Database and env files (`.env`, `data/*.db`) must not be committed; see [PUBLISH_CHECKLIST.md](PUBLISH_CHECKLIST.md).
+- Database and env files (`.env`, `data/*.db`) must not be committed.
