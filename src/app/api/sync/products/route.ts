@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { ProductRecord } from "@/lib/mock-products";
+import { parseCeligoPayload } from "@/lib/celigo-mapper";
 import { getProductCount, upsertProducts } from "@/lib/products-repository";
 
 type SyncPayload = {
-  products: ProductRecord[];
+  products?: ProductRecord[];
+  page_of_records?: unknown[];
 };
 
 function hasRequiredFields(product: Partial<ProductRecord>) {
@@ -14,9 +16,19 @@ function hasRequiredFields(product: Partial<ProductRecord>) {
       product.name &&
       typeof product.price === "number" &&
       product.currency &&
-      product.imageUrl &&
+      product.imageUrl != null &&
       product.updatedAt,
   );
+}
+
+function normalizePayload(body: SyncPayload): ProductRecord[] {
+  if (body.page_of_records != null) {
+    return parseCeligoPayload(body);
+  }
+  if (Array.isArray(body.products)) {
+    return body.products;
+  }
+  return [];
 }
 
 export async function POST(request: Request) {
@@ -35,14 +47,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  if (!Array.isArray(body.products)) {
+  const products = normalizePayload(body);
+  if (products.length === 0) {
     return NextResponse.json(
-      { error: "Expected payload: { products: ProductRecord[] }" },
+      {
+        error:
+          "Expected payload: { products: ProductRecord[] } or { page_of_records: Record[] } (Celigo export format)",
+      },
       { status: 400 },
     );
   }
 
-  const invalidProducts = body.products.filter(
+  const invalidProducts = products.filter(
     (product) => !hasRequiredFields(product),
   );
   if (invalidProducts.length > 0) {
@@ -52,7 +68,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const count = upsertProducts(body.products);
+  const count = upsertProducts(products);
   return NextResponse.json(
     {
       success: true,

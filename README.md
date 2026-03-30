@@ -57,29 +57,39 @@ Example:
 curl "http://localhost:3100/api/products?barcode=012345678905"
 ```
 
-### Sync/Upsert Products (MVP)
+### Sync/Upsert Products
 
 `POST /api/sync/products`
 
-Payload:
+Accepts two payload formats:
 
-```json
-{
-  "products": [
-    {
-      "id": "2001",
-      "barcode": "123456789012",
-      "sku": "SKU-2001",
-      "name": "Sample Product",
-      "description": "Sample description",
-      "price": 9.99,
-      "currency": "USD",
-      "imageUrl": "https://example.com/image.jpg",
-      "updatedAt": "2026-02-23T00:00:00.000Z"
-    }
-  ]
-}
-```
+**1. Direct format** – `{ "products": [ { id, barcode, sku, name, description, price, currency, imageUrl, updatedAt }, ... ] }`
+
+**2. Celigo export format** – `{ "page_of_records": [ { record fields }, ... ] }`  
+The app maps Celigo/NetSuite field names to the product schema. Supported field names (any of these per column):
+
+| Our field   | Celigo/NetSuite field names (examples) |
+|------------|----------------------------------------|
+| id         | `internalId`, `internal_id`, `id` |
+| barcode    | `UPC Code (Variant)`, `upcCode`, `barcode`, `UPC` |
+| name       | `Display Name`, `displayName`, `name`, `Item Name (Variant)` |
+| sku        | `Item Name (Variant)`, `itemName`, `sku`, `Item Name` |
+| description| `Sales Description`, `salesDescription`, `description` |
+| price      | `Price (Variant)`, `price`, `basePrice`, `unitPrice` |
+| imageUrl   | `Images`, `images`, `imageUrl`, `dataURI` (optional; empty ok) |
+| updatedAt  | `Last Modified`, `Last Modified Date`, `lastModifiedDate`, `modified`, `updatedAt` (optional; defaults to now) |
+
+**Delta sync (Celigo):** Set **Export type** to **Delta** and **Date fields to use in delta search** to **Last Modified** so only changed records are sent.
+
+**Next steps after the export is configured:**
+
+1. **Save the export** in Celigo (Save & close).
+2. **Create or edit a flow** that uses this export and sends the result to the Price Checker app:
+   - Add a step that **POSTs** the export output to `http://<store-server>:3100/api/sync/products` (replace `<store-server>` with your server’s hostname or IP).
+   - If you use `SYNC_API_KEY`, add header `x-sync-key: <your-key>` to the request.
+   - The request body should be the export’s JSON output (e.g. `{ "page_of_records": [ ... ] }`). The app will map it automatically.
+3. **Schedule the flow** (e.g. daily) so price changes sync on a schedule.
+4. **Test** with a manual flow run, then check the Price Checker admin page or scan a barcode to confirm data arrived.
 
 Optional security:
 
