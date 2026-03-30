@@ -7,7 +7,11 @@ Current implementation includes:
 - Scan-friendly UI (keyboard wedge compatible)
 - Product lookup API by barcode
 - Mock local product cache
-- Sync ingestion endpoint for future Celigo/NetSuite integration
+- Sync ingestion endpoint for Celigo/NetSuite-style HTTP exports
+
+## On-prem deployment (Proxmox, UniFi, Celigo)
+
+For **static IP / port forwarding**, **UDM Pro** rules, **internal DNS for kiosks**, **nginx + TLS**, and **Celigo REST (HTTP)** setup, see **[docs/on-prem-deployment.md](docs/on-prem-deployment.md)**. Example **nginx** and **systemd** files live under [deploy/](deploy/).
 
 ## Run Locally
 
@@ -85,7 +89,8 @@ The app maps Celigo/NetSuite field names to the product schema. Supported field 
 
 1. **Save the export** in Celigo (Save & close).
 2. **Create or edit a flow** that uses this export and sends the result to the Price Checker app:
-   - Add a step that **POSTs** the export output to `http://<store-server>:3100/api/sync/products` (replace `<store-server>` with your server’s hostname or IP).
+   - In Celigo, choose **REST API (HTTP)** or **HTTP** (not a SQL connector).
+   - Add a step that **POSTs** the export output to **`https://<public-hostname>/api/sync/products`** when using **nginx + TLS** on port 443, or `http://<LAN-IP>:3100/api/sync/products` for lab-only (no TLS).
    - If you use `SYNC_API_KEY`, add header `x-sync-key: <your-key>` to the request.
    - The request body should be the export’s JSON output (e.g. `{ "page_of_records": [ ... ] }`). The app will map it automatically.
 3. **Schedule the flow** (e.g. daily) so price changes sync on a schedule.
@@ -144,4 +149,14 @@ So far the app is **kiosk-ready**: single page, no in-app navigation, full-scree
 ## Notes
 
 - Current data storage is persistent local SQLite.
-- Next phase: add Celigo/NetSuite payload mapping and scheduled sync jobs.
+- Celigo **`page_of_records`** mapping is implemented in [`src/lib/celigo-mapper.ts`](src/lib/celigo-mapper.ts).
+
+## Verify sync contract (optional)
+
+With the dev or production server running:
+
+```bash
+./scripts/verify-sync-contract.sh http://127.0.0.1:3100
+# With auth:
+SYNC_API_KEY=yourkey ./scripts/verify-sync-contract.sh http://127.0.0.1:3100
+```

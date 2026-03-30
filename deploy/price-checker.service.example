@@ -1,0 +1,34 @@
+# Example systemd unit — install as /etc/systemd/system/price-checker.service
+# Adjust User, paths, and EnvironmentFile to match your server.
+#
+# Setup:
+#   sudo useradd -r -s /usr/sbin/nologin -d /opt/pricechecker pricechecker
+#   sudo mkdir -p /opt/pricechecker && sudo chown pricechecker:pricechecker /opt/pricechecker
+#   # deploy app (git clone + npm ci + npm run build), place .env with SYNC_API_KEY
+#   sudo -u pricechecker bash -c 'cd /opt/pricechecker && npm ci && npm run build'
+#
+# sudo systemctl daemon-reload
+# sudo systemctl enable --now price-checker
+
+[Unit]
+Description=Price Checker (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pricechecker
+Group=pricechecker
+WorkingDirectory=/opt/pricechecker
+Environment=NODE_ENV=production
+EnvironmentFile=-/opt/pricechecker/.env
+ExecStart=/usr/bin/npm run start --prefix /opt/pricechecker
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

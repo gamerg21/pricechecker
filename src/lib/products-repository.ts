@@ -30,8 +30,8 @@ function rowToProduct(row: ProductRow): ProductRecord {
 const upsertStmt = db.prepare(`
   INSERT INTO products (id, barcode, sku, name, description, price, currency, image_url, updated_at)
   VALUES (@id, @barcode, @sku, @name, @description, @price, @currency, @imageUrl, @updatedAt)
-  ON CONFLICT(id) DO UPDATE SET
-    barcode = excluded.barcode,
+  ON CONFLICT(barcode) DO UPDATE SET
+    id = excluded.id,
     sku = excluded.sku,
     name = excluded.name,
     description = excluded.description,

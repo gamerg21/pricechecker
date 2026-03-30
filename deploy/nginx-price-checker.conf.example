@@ -1,0 +1,70 @@
+# Example nginx site for Price Checker (copy to /etc/nginx/sites-available/ and enable).
+# IPv4-only listen directives (no [::] binds)—matches an IPv4-only LAN/WAN setup.
+# 1. Install certbot and issue a cert for $PUBLIC_HOSTNAME (used by Celigo).
+# 2. Replace PUBLIC_HOSTNAME and certificate paths below.
+# 3. Node must listen on 127.0.0.1:3100 (npm run start).
+#
+# Internal kiosks can keep using http://<LAN-IP>:3100/ directly so they do not rely on WAN hairpin.
+
+upstream price_checker_node {
+    server 127.0.0.1:3100;
+    keepalive 64;
+}
+
+server {
+    listen 80;
+    server_name PUBLIC_HOSTNAME;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name PUBLIC_HOSTNAME;
+
+    ssl_certificate     /etc/letsencrypt/live/PUBLIC_HOSTNAME/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/PUBLIC_HOSTNAME/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Sync endpoint for Celigo (and optional full site proxy).
+    location /api/sync/products {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://price_checker_node;
+        proxy_read_timeout 300s;
+        client_max_body_size 50m;
+    }
+
+    # Optional: proxy entire app over HTTPS for WAN testing.
+    # Uncomment to serve the kiosk UI on https://PUBLIC_HOSTNAME/ as well.
+    # location / {
+    #     proxy_http_version 1.1;
+    #     proxy_set_header Host $host;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_pass http://price_checker_node;
+    # }
+
+    # Optional: lock down admin to management IPs only (replace with your CIDRs).
+    # location /admin {
+    #     allow 10.0.10.0/24;
+    #     deny all;
+    #     proxy_http_version 1.1;
+    #     proxy_set_header Host $host;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_pass http://price_checker_node;
+    # }
+}
