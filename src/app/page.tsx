@@ -34,6 +34,70 @@ const initialState: LookupState = {
   product: null,
 };
 
+function hasProductImage(url: string): boolean {
+  return url.trim().length > 0;
+}
+
+function ProductDetail({
+  product,
+  updatedAtLabel,
+}: {
+  product: ProductRecord;
+  updatedAtLabel: string | null;
+}) {
+  const showImage = hasProductImage(product.imageUrl);
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200">
+      <div
+        className={
+          showImage
+            ? "grid grid-cols-[minmax(8.5rem,14rem)_1fr]"
+            : "grid grid-cols-1"
+        }
+      >
+        {showImage ? (
+          <div className="relative min-h-40 bg-slate-200">
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              sizes="40vw"
+              className="object-cover"
+              priority
+              unoptimized={
+                !product.imageUrl.startsWith("https://images.unsplash.com")
+              }
+            />
+          </div>
+        ) : null}
+        <div className="space-y-1.5 p-3">
+          <h2 className="text-xl font-bold">{product.name}</h2>
+          <p className="text-sm text-slate-600">{product.description}</p>
+          <p className="text-3xl font-extrabold text-indigo-700">
+            {new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: product.currency,
+            }).format(product.price)}
+          </p>
+          <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
+            <p>
+              <strong>SKU:</strong> {product.sku}
+            </p>
+            <p>
+              <strong>Barcode:</strong> {product.barcode}
+            </p>
+            {updatedAtLabel ? (
+              <p>
+                <strong>Last Sync:</strong> {updatedAtLabel}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [state, setState] = useState<LookupState>(initialState);
@@ -213,50 +277,10 @@ export default function Home() {
         ) : null}
 
         {state.product ? (
-          <section className="overflow-hidden rounded-xl border border-slate-200">
-            <div className="grid grid-cols-[minmax(8.5rem,14rem)_1fr]">
-              <div className="relative min-h-40 bg-slate-200">
-                {state.product.imageUrl ? (
-                  <Image
-                    src={state.product.imageUrl}
-                    alt={state.product.name}
-                    fill
-                    sizes="40vw"
-                    className="object-cover"
-                    priority
-                    unoptimized={!state.product.imageUrl.startsWith("https://images.unsplash.com")}
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-slate-500">
-                    No image
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5 p-3">
-                <h2 className="text-xl font-bold">{state.product.name}</h2>
-                <p className="text-sm text-slate-600">{state.product.description}</p>
-                <p className="text-3xl font-extrabold text-indigo-700">
-                  {new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: state.product.currency,
-                  }).format(state.product.price)}
-                </p>
-                <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
-                  <p>
-                    <strong>SKU:</strong> {state.product.sku}
-                  </p>
-                  <p>
-                    <strong>Barcode:</strong> {state.product.barcode}
-                  </p>
-                  {updatedAtLabel ? (
-                    <p>
-                      <strong>Last Sync:</strong> {updatedAtLabel}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </section>
+          <ProductDetail
+            product={state.product}
+            updatedAtLabel={updatedAtLabel}
+          />
         ) : null}
       </main>
     </div>

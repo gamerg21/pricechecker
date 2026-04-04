@@ -30,6 +30,11 @@ function getNumber(record: CeligoRecord, ...keys: string[]): number {
   return 0;
 }
 
+/** NetSuite/Celigo often sends Sales Description as HTML (e.g. `<p>...</p>`). */
+function plainTextFromRichText(raw: string): string {
+  return raw.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
 /**
  * Map a single Celigo/NetSuite export record to our ProductRecord.
  * Supports field names from "Price Checker Item Export" Saved Search.
@@ -61,11 +66,13 @@ export function celigoRecordToProduct(record: CeligoRecord): ProductRecord | nul
     "Item Name",
     "Display Name"
   ) || name || id;
-  const description = getString(
-    record,
-    "Sales Description",
-    "salesDescription",
-    "description"
+  const description = plainTextFromRichText(
+    getString(
+      record,
+      "Sales Description",
+      "salesDescription",
+      "description",
+    ),
   );
   const price = getNumber(
     record,
