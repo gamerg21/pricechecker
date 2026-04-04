@@ -108,7 +108,7 @@ export function celigoRecordToProduct(record: CeligoRecord): ProductRecord | nul
 }
 
 /**
- * Parse Celigo export payload: { page_of_records: [ record, ... ] }.
+ * Parse Celigo export payload: { page_of_records: [ record | { record }, ... ] }.
  * Returns array of ProductRecord; skips records that can't be mapped.
  */
 export function parseCeligoPayload(body: unknown): ProductRecord[] {
@@ -118,9 +118,13 @@ export function parseCeligoPayload(body: unknown): ProductRecord[] {
   if (!Array.isArray(records)) return [];
   const products: ProductRecord[] = [];
   for (const item of records) {
-    const record = item && typeof item === "object" ? (item as CeligoRecord) : null;
-    if (!record) continue;
-    const product = celigoRecordToProduct(record);
+    const container = item && typeof item === "object" ? (item as Record<string, unknown>) : null;
+    const rawRecord =
+      container && container.record && typeof container.record === "object"
+        ? (container.record as CeligoRecord)
+        : (container as CeligoRecord | null);
+    if (!rawRecord) continue;
+    const product = celigoRecordToProduct(rawRecord);
     if (product) products.push(product);
   }
   return products;
