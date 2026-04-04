@@ -1,5 +1,5 @@
 import db from "@/lib/db";
-import { mockProducts, ProductRecord } from "@/lib/mock-products";
+import { ProductRecord } from "@/lib/mock-products";
 
 type ProductRow = {
   id: string;
@@ -48,18 +48,6 @@ const findByBarcodeStmt = db.prepare(
 const listRecentStmt = db.prepare(
   "SELECT * FROM products ORDER BY updated_at DESC, name ASC LIMIT ?",
 );
-
-const seedIfEmpty = db.transaction(() => {
-  const countRow = countStmt.get() as { total: number } | undefined;
-  if ((countRow?.total ?? 0) > 0) {
-    return;
-  }
-  for (const product of mockProducts) {
-    upsertStmt.run(product);
-  }
-});
-
-seedIfEmpty();
 
 export function findProductByBarcode(barcode: string): ProductRecord | null {
   const row = findByBarcodeStmt.get(barcode) as ProductRow | undefined;
