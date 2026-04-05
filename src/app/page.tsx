@@ -226,7 +226,17 @@ export default function Home() {
     >
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl bg-white p-4 shadow-md">
         <header className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Price Checker</h1>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={48}
+              height={48}
+              className="h-12 w-12 shrink-0"
+              priority
+            />
+            <h1 className="text-2xl font-bold tracking-tight">Price Checker</h1>
+          </div>
           <p className="text-sm text-slate-600">
             Scan product barcode to view item details and price.
           </p>

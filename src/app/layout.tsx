@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Price Checker",
   description: "Customer-facing barcode price checker for scanner devices",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: "/favicon.ico",
+  },
 };
 
 export const viewport: Viewport = {
