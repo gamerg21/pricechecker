@@ -32,6 +32,11 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_products_list_order
+  ON products(updated_at DESC, name ASC, id ASC);
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS api_activity (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
