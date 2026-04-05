@@ -31,4 +31,22 @@ db.exec(`
   ON products(barcode);
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS api_activity (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    route TEXT NOT NULL,
+    method TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    level TEXT NOT NULL,
+    message TEXT NOT NULL,
+    detail_json TEXT
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_api_activity_created_at
+  ON api_activity(created_at DESC);
+`);
+
 export default db;

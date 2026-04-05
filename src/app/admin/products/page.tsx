@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listProducts } from "@/lib/products-repository";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +9,27 @@ export default function AdminProductsPage() {
   return (
     <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-4 rounded-xl bg-white p-6 shadow">
-        <header>
-          <h1 className="text-2xl font-bold">Product Data (Local SQL)</h1>
-          <p className="text-sm text-slate-600">
-            Internal admin view of the local database running on this server.
-          </p>
+        <header className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Product Data (Local SQL)</h1>
+            <p className="text-sm text-slate-600">
+              Internal admin view of the local database running on this server.
+            </p>
+          </div>
+          <nav className="flex flex-wrap gap-2 text-sm">
+            <Link
+              href="/admin/activity"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              API activity
+            </Link>
+            <Link
+              href="/"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Price checker
+            </Link>
+          </nav>
         </header>
 
         <div className="overflow-x-auto">

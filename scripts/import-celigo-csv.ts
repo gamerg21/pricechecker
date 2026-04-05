@@ -5,11 +5,34 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { appendApiActivity } from "../src/lib/api-activity-repository";
 import {
   celigoRecordToProduct,
   type CeligoRecord,
 } from "../src/lib/celigo-mapper";
 import { getProductCount, upsertProducts } from "../src/lib/products-repository";
+
+const IMPORT_ROUTE = "/cli/import-celigo-csv";
+
+function logImport(
+  status: number,
+  level: "success" | "error" | "info",
+  message: string,
+  detail?: Record<string, unknown> | null,
+) {
+  try {
+    appendApiActivity({
+      route: IMPORT_ROUTE,
+      method: "CLI",
+      status,
+      level,
+      message,
+      detail,
+    });
+  } catch {
+    // Activity log is best-effort; import should still complete or exit clearly.
+  }
+}
 
 function parseCsv(content: string): string[][] {
   const rows: string[][] = [];
@@ -95,33 +118,73 @@ const defaultCsv = path.join(
 );
 
 const csvPath = path.resolve(process.argv[2] ?? defaultCsv);
-const raw = fs.readFileSync(csvPath, "utf8");
-const table = parseCsv(raw);
-if (table.length < 2) {
-  console.error("CSV must include a header row and at least one data row.");
-  process.exit(1);
-}
+const csvRelative = path.relative(process.cwd(), csvPath);
 
-const headers = table[0].map((h) => h.trim());
-const products = [];
-let skipped = 0;
-
-for (let r = 1; r < table.length; r++) {
-  const record = rowToRecord(headers, table[r]);
-  const product = celigoRecordToProduct(record);
-  if (product) {
-    products.push(product);
-  } else {
-    skipped++;
+try {
+  const raw = fs.readFileSync(csvPath, "utf8");
+  const table = parseCsv(raw);
+  if (table.length < 2) {
+    logImport(400, "error", "CSV import rejected: missing data rows", {
+      csvPath: csvRelative,
+    });
+    console.error("CSV must include a header row and at least one data row.");
+    process.exit(1);
   }
-}
 
-if (products.length === 0) {
-  console.error("No valid product rows after mapping.");
+  const headers = table[0].map((h) => h.trim());
+  const products = [];
+  let skipped = 0;
+
+  for (let r = 1; r < table.length; r++) {
+    const record = rowToRecord(headers, table[r]);
+    const product = celigoRecordToProduct(record);
+    if (product) {
+      products.push(product);
+    } else {
+      skipped++;
+    }
+  }
+
+  if (products.length === 0) {
+    logImport(400, "error", "CSV import rejected: no valid rows after mapping", {
+      csvPath: csvRelative,
+      skippedRows: skipped,
+    });
+    console.error("No valid product rows after mapping.");
+    process.exit(1);
+  }
+
+  let n: number;
+  try {
+    n = upsertProducts(products);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logImport(500, "error", "CSV import failed: database error during upsert", {
+      csvPath: csvRelative,
+      message,
+      batchSize: products.length,
+    });
+    console.error(message);
+    process.exit(1);
+  }
+
+  const totalProducts = getProductCount();
+  logImport(200, "success", `Imported ${n} product(s) from CSV`, {
+    csvPath: csvRelative,
+    upsertedCount: n,
+    skippedRows: skipped,
+    totalProducts,
+    batchSize: products.length,
+  });
+
+  console.log(
+    `Imported ${n} product(s) from ${csvRelative} (skipped ${skipped} row(s)). Total in DB: ${totalProducts}.`,
+  );
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  logImport(500, "error", `CSV import failed: ${message}`, {
+    csvPath: csvRelative,
+  });
+  console.error(message);
   process.exit(1);
 }
-
-const n = upsertProducts(products);
-console.log(
-  `Imported ${n} product(s) from ${path.relative(process.cwd(), csvPath)} (skipped ${skipped} row(s)). Total in DB: ${getProductCount()}.`,
-);
