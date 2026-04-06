@@ -7,11 +7,15 @@
     "build": "next build",
     "start": "next start -p 3100",
     "lint": "eslint",
-    "import:csv": "tsx scripts/import-celigo-csv.ts"
+    "import:csv": "tsx scripts/import-celigo-csv.ts",
+    "users": "tsx scripts/manage-users.ts"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "next": "16.1.6",
+    "next-auth": "^5.0.0-beta.30",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

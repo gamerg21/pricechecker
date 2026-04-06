@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { logoutAction } from "../actions";
 import type { ProductRecord } from "@/lib/mock-products";
 import type { ProductListCursor } from "@/lib/products-repository";
 
@@ -131,6 +132,14 @@ export function AdminProductsClient() {
             >
               Price checker
             </Link>
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Sign out
+              </button>
+            </form>
           </nav>
         </header>
 
