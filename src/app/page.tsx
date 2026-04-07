@@ -101,7 +101,6 @@ function ProductDetail({
 export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [state, setState] = useState<LookupState>(initialState);
-  const [lastSearchedBarcode, setLastSearchedBarcode] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
@@ -129,7 +128,6 @@ export default function Home() {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     if (mountedRef.current) {
-      setLastSearchedBarcode(normalizedBarcode);
       setState((prev) => ({ ...prev, loading: true, error: null }));
     }
 
@@ -167,23 +165,6 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    const normalized = barcode.trim();
-    if (!normalized) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      if (normalized !== lastSearchedBarcode) {
-        setBarcode("");
-        setLastSearchedBarcode(normalized);
-        void runLookup(normalized);
-      }
-    }, 150);
-
-    return () => window.clearTimeout(timeout);
-  }, [barcode, lastSearchedBarcode, runLookup]);
-
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key !== "Enter") {
       return;
@@ -194,7 +175,6 @@ export default function Home() {
       return;
     }
     setBarcode("");
-    setLastSearchedBarcode(normalized);
     void runLookup(normalized);
   }
 
@@ -203,18 +183,12 @@ export default function Home() {
     setBarcode(nextValue);
 
     if (!nextValue.trim()) {
-      setLastSearchedBarcode("");
       setState(initialState);
-      return;
     }
-
-    // Always clear previous result while new scan input is arriving.
-    setState({ loading: false, error: null, product: null });
   }
 
   function clearAndRefocus() {
     setBarcode("");
-    setLastSearchedBarcode("");
     setState(initialState);
     inputRef.current?.focus();
   }
@@ -259,9 +233,19 @@ export default function Home() {
               onKeyDown={handleInputKeyDown}
               placeholder="Scan or type barcode here"
             />
-            <div className="flex min-w-24 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
-              {state.loading ? "Checking..." : "Auto"}
-            </div>
+            <button
+              className="flex min-w-24 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              type="submit"
+              onClick={(e) => {
+                e.preventDefault();
+                const normalized = barcode.trim();
+                if (!normalized) return;
+                setBarcode("");
+                void runLookup(normalized);
+              }}
+            >
+              {state.loading ? "Checking..." : "Look Up"}
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
