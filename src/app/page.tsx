@@ -254,12 +254,10 @@ export default function Home() {
               autoFocus
               autoComplete="off"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base outline-none ring-indigo-500 focus:ring-2"
-              inputMode="none"
               value={barcode}
               onChange={handleBarcodeChange}
               onKeyDown={handleInputKeyDown}
-              placeholder="Scan barcode here"
-              title="Focus here and scan; keyboard is suppressed when possible"
+              placeholder="Scan or type barcode here"
             />
             <div className="flex min-w-24 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
               {state.loading ? "Checking..." : "Auto"}
@@ -274,8 +272,7 @@ export default function Home() {
               Clear
             </button>
             <span className="self-center text-xs text-slate-500">
-              Scanner types into the focused field. Keyboard popup? Disable it in
-              device or scanner settings.
+              Scan a barcode or type one in and press Enter.
             </span>
           </div>
         </form>
