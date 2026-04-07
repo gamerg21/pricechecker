@@ -44,6 +44,14 @@ function hasRequiredFields(product: Partial<ProductRecord>) {
   );
 }
 
+/** Ensure wholesalePrice defaults to null when not provided via direct API. */
+function normalizeProduct(product: ProductRecord): ProductRecord {
+  return {
+    ...product,
+    wholesalePrice: product.wholesalePrice ?? null,
+  };
+}
+
 function normalizePayload(body: SyncPayload): ProductRecord[] {
   if (body.page_of_records != null) {
     return parseCeligoPayload(body);
@@ -104,9 +112,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const normalizedProducts = products.map(normalizeProduct);
+
   let count: number;
   try {
-    count = upsertProducts(products);
+    count = upsertProducts(normalizedProducts);
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Unknown error during upsert";

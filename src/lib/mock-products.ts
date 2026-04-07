@@ -5,6 +5,7 @@ export type ProductRecord = {
   name: string;
   description: string;
   price: number;
+  wholesalePrice: number | null;
   currency: "USD";
   imageUrl: string;
   updatedAt: string;
@@ -18,6 +19,7 @@ export const mockProducts: ProductRecord[] = [
     name: "Spring Water 12oz (24 Pack)",
     description: "Purified bottled spring water.",
     price: 5.99,
+    wholesalePrice: 3.49,
     currency: "USD",
     imageUrl:
       "https://images.unsplash.com/photo-1564419320461-6870880221ad?auto=format&fit=crop&w=900&q=80",
@@ -30,6 +32,7 @@ export const mockProducts: ProductRecord[] = [
     name: "Cola 12oz (12 Pack)",
     description: "Classic cola soft drink.",
     price: 8.49,
+    wholesalePrice: 5.99,
     currency: "USD",
     imageUrl:
       "https://images.unsplash.com/photo-1581006852262-e4307cf6283a?auto=format&fit=crop&w=900&q=80",
@@ -42,6 +45,7 @@ export const mockProducts: ProductRecord[] = [
     name: "Facial Tissue 6 Pack",
     description: "Soft 2-ply facial tissues.",
     price: 10.99,
+    wholesalePrice: 7.49,
     currency: "USD",
     imageUrl:
       "https://images.unsplash.com/photo-1595341595379-cf0f0f6d20d9?auto=format&fit=crop&w=900&q=80",

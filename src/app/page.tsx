@@ -17,6 +17,7 @@ type ProductRecord = {
   name: string;
   description: string;
   price: number;
+  wholesalePrice: number | null;
   currency: string;
   imageUrl: string;
   updatedAt: string;
@@ -79,6 +80,15 @@ function ProductDetail({
               currency: product.currency,
             }).format(product.price)}
           </p>
+          {product.wholesalePrice != null ? (
+            <p className="text-lg font-semibold text-slate-500">
+              Wholesale:{" "}
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: product.currency,
+              }).format(product.wholesalePrice)}
+            </p>
+          ) : null}
           <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
             <p>
               <strong>SKU:</strong> {product.sku}

@@ -81,6 +81,14 @@ export function celigoRecordToProduct(record: CeligoRecord): ProductRecord | nul
     "basePrice",
     "unitPrice"
   );
+  const rawWholesale = getNumber(
+    record,
+    "Wholesale Price",
+    "wholesalePrice",
+    "wholesale_price",
+    "Wholesale"
+  );
+  const wholesalePrice = rawWholesale > 0 ? rawWholesale : null;
   const imageUrl =
     getString(record, "Images", "images", "imageUrl", "image_url", "dataURI", "dataUrl") ||
     "";
@@ -108,6 +116,7 @@ export function celigoRecordToProduct(record: CeligoRecord): ProductRecord | nul
     name: String(name),
     description: description || name,
     price: Number(price),
+    wholesalePrice: wholesalePrice,
     currency: defaultCurrency,
     imageUrl: imageUrl || "",
     updatedAt: updatedAt || defaultUpdatedAt(),

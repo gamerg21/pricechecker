@@ -177,20 +177,21 @@ export function AdminProductsClient() {
                 <th className="p-2 font-semibold">SKU</th>
                 <th className="p-2 font-semibold">Name</th>
                 <th className="p-2 font-semibold">Price</th>
+                <th className="p-2 font-semibold">Wholesale</th>
                 <th className="p-2 font-semibold">Updated</th>
               </tr>
             </thead>
             <tbody>
               {loading && products.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-500">
+                  <td colSpan={6} className="p-6 text-center text-slate-500">
                     Loading…
                   </td>
                 </tr>
               ) : null}
               {!loading && products.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-500">
+                  <td colSpan={6} className="p-6 text-center text-slate-500">
                     No products match this search.
                   </td>
                 </tr>
@@ -205,6 +206,14 @@ export function AdminProductsClient() {
                       style: "currency",
                       currency: product.currency,
                     }).format(product.price)}
+                  </td>
+                  <td className="p-2 text-slate-500">
+                    {product.wholesalePrice != null
+                      ? new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: product.currency,
+                        }).format(product.wholesalePrice)
+                      : "—"}
                   </td>
                   <td className="p-2">
                     {new Date(product.updatedAt).toLocaleString()}

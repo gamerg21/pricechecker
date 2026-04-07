@@ -20,11 +20,19 @@ db.exec(`
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     price REAL NOT NULL,
+    wholesale_price REAL,
     currency TEXT NOT NULL,
     image_url TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
 `);
+
+// Migration: add wholesale_price to existing databases
+try {
+  db.exec(`ALTER TABLE products ADD COLUMN wholesale_price REAL`);
+} catch {
+  // Column already exists — safe to ignore
+}
 
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_products_barcode

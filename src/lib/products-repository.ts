@@ -8,6 +8,7 @@ type ProductRow = {
   name: string;
   description: string;
   price: number;
+  wholesale_price: number | null;
   currency: string;
   image_url: string;
   updated_at: string;
@@ -21,6 +22,7 @@ function rowToProduct(row: ProductRow): ProductRecord {
     name: row.name,
     description: row.description,
     price: Number(row.price),
+    wholesalePrice: row.wholesale_price != null ? Number(row.wholesale_price) : null,
     currency: "USD",
     imageUrl: row.image_url,
     updatedAt: row.updated_at,
@@ -28,14 +30,15 @@ function rowToProduct(row: ProductRow): ProductRecord {
 }
 
 const upsertStmt = db.prepare(`
-  INSERT INTO products (id, barcode, sku, name, description, price, currency, image_url, updated_at)
-  VALUES (@id, @barcode, @sku, @name, @description, @price, @currency, @imageUrl, @updatedAt)
+  INSERT INTO products (id, barcode, sku, name, description, price, wholesale_price, currency, image_url, updated_at)
+  VALUES (@id, @barcode, @sku, @name, @description, @price, @wholesalePrice, @currency, @imageUrl, @updatedAt)
   ON CONFLICT(barcode) DO UPDATE SET
     id = excluded.id,
     sku = excluded.sku,
     name = excluded.name,
     description = excluded.description,
     price = excluded.price,
+    wholesale_price = excluded.wholesale_price,
     currency = excluded.currency,
     image_url = excluded.image_url,
     updated_at = excluded.updated_at;
