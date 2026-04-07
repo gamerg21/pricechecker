@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { appendApiActivity } from "@/lib/api-activity-repository";
 import { ProductRecord } from "@/lib/mock-products";
 import { parseCeligoPayload } from "@/lib/celigo-mapper";
+import { normalizeImportBatch } from "@/lib/product-import-normalizer";
 import { getProductCount, upsertProducts } from "@/lib/products-repository";
 
 const SYNC_ROUTE = "/api/sync/products";
@@ -112,7 +113,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const normalizedProducts = products.map(normalizeProduct);
+  const normalizedProducts = normalizeImportBatch(products.map(normalizeProduct));
+  const dedupedWithinBatch = products.length - normalizedProducts.length;
 
   let count: number;
   try {
@@ -133,7 +135,9 @@ export async function POST(request: Request) {
   logSync(200, "success", `Upserted ${count} product(s)`, {
     upsertedCount: count,
     totalProducts,
-    batchSize: products.length,
+    batchSize: normalizedProducts.length,
+    originalBatchSize: products.length,
+    dedupedWithinBatch,
   });
 
   return NextResponse.json(
@@ -141,6 +145,7 @@ export async function POST(request: Request) {
       success: true,
       upsertedCount: count,
       totalProducts,
+      dedupedWithinBatch,
     },
     { status: 200 },
   );

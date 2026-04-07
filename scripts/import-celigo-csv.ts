@@ -10,6 +10,7 @@ import {
   celigoRecordToProduct,
   type CeligoRecord,
 } from "../src/lib/celigo-mapper";
+import { normalizeImportBatch } from "../src/lib/product-import-normalizer";
 import { getProductCount, upsertProducts } from "../src/lib/products-repository";
 
 const IMPORT_ROUTE = "/cli/import-celigo-csv";
@@ -154,15 +155,19 @@ try {
     process.exit(1);
   }
 
+  const normalizedProducts = normalizeImportBatch(products);
+  const dedupedWithinBatch = products.length - normalizedProducts.length;
+
   let n: number;
   try {
-    n = upsertProducts(products);
+    n = upsertProducts(normalizedProducts);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logImport(500, "error", "CSV import failed: database error during upsert", {
       csvPath: csvRelative,
       message,
-      batchSize: products.length,
+      batchSize: normalizedProducts.length,
+      dedupedWithinBatch,
     });
     console.error(message);
     process.exit(1);
@@ -173,12 +178,14 @@ try {
     csvPath: csvRelative,
     upsertedCount: n,
     skippedRows: skipped,
+    dedupedWithinBatch,
     totalProducts,
-    batchSize: products.length,
+    batchSize: normalizedProducts.length,
+    originalBatchSize: products.length,
   });
 
   console.log(
-    `Imported ${n} product(s) from ${csvRelative} (skipped ${skipped} row(s)). Total in DB: ${totalProducts}.`,
+    `Imported ${n} product(s) from ${csvRelative} (skipped ${skipped} row(s), deduped ${dedupedWithinBatch} conflicting row(s)). Total in DB: ${totalProducts}.`,
   );
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);

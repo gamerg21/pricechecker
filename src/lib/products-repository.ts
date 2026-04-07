@@ -29,24 +29,48 @@ function rowToProduct(row: ProductRow): ProductRecord {
   };
 }
 
-const upsertStmt = db.prepare(`
+const insertStmt = db.prepare(`
   INSERT INTO products (id, barcode, sku, name, description, price, wholesale_price, currency, image_url, updated_at)
-  VALUES (@id, @barcode, @sku, @name, @description, @price, @wholesalePrice, @currency, @imageUrl, @updatedAt)
-  ON CONFLICT(barcode) DO UPDATE SET
-    id = excluded.id,
-    sku = excluded.sku,
-    name = excluded.name,
-    description = excluded.description,
-    price = excluded.price,
-    wholesale_price = excluded.wholesale_price,
-    currency = excluded.currency,
-    image_url = excluded.image_url,
-    updated_at = excluded.updated_at;
+  VALUES (@id, @barcode, @sku, @name, @description, @price, @wholesalePrice, @currency, @imageUrl, @updatedAt);
 `);
+
+const updateByIdStmt = db.prepare(`
+  UPDATE products
+  SET barcode = @barcode,
+      sku = @sku,
+      name = @name,
+      description = @description,
+      price = @price,
+      wholesale_price = @wholesalePrice,
+      currency = @currency,
+      image_url = @imageUrl,
+      updated_at = @updatedAt
+  WHERE id = @id;
+`);
+
+const updateByBarcodeStmt = db.prepare(`
+  UPDATE products
+  SET id = @id,
+      sku = @sku,
+      name = @name,
+      description = @description,
+      price = @price,
+      wholesale_price = @wholesalePrice,
+      currency = @currency,
+      image_url = @imageUrl,
+      updated_at = @updatedAt
+  WHERE barcode = @barcode;
+`);
+
+const deleteByIdStmt = db.prepare("DELETE FROM products WHERE id = ?");
+const deleteByBarcodeStmt = db.prepare("DELETE FROM products WHERE barcode = ?");
 
 const countStmt = db.prepare("SELECT COUNT(*) AS total FROM products");
 const findByBarcodeStmt = db.prepare(
   "SELECT * FROM products WHERE barcode = ? LIMIT 1",
+);
+const findByIdStmt = db.prepare(
+  "SELECT * FROM products WHERE id = ? LIMIT 1",
 );
 const listRecentStmt = db.prepare(
   "SELECT * FROM products ORDER BY updated_at DESC, name ASC, id ASC LIMIT ?",
@@ -120,7 +144,32 @@ export function findProductByBarcode(barcode: string): ProductRecord | null {
 export function upsertProducts(products: ProductRecord[]) {
   const transaction = db.transaction((records: ProductRecord[]) => {
     for (const product of records) {
-      upsertStmt.run(product);
+      const existingById = findByIdStmt.get(product.id) as ProductRow | undefined;
+      const existingByBarcode = findByBarcodeStmt.get(product.barcode) as ProductRow | undefined;
+
+      if (existingById && existingByBarcode && existingById.id !== existingByBarcode.id) {
+        const preferIncomingId = product.updatedAt >= existingById.updated_at;
+        if (preferIncomingId) {
+          deleteByBarcodeStmt.run(product.barcode);
+          updateByIdStmt.run(product);
+        } else {
+          deleteByIdStmt.run(product.id);
+          updateByBarcodeStmt.run(product);
+        }
+        continue;
+      }
+
+      if (existingById) {
+        updateByIdStmt.run(product);
+        continue;
+      }
+
+      if (existingByBarcode) {
+        updateByBarcodeStmt.run(product);
+        continue;
+      }
+
+      insertStmt.run(product);
     }
   });
   transaction(products);
