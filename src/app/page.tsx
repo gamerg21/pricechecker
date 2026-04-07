@@ -74,21 +74,32 @@ function ProductDetail({
         <div className="space-y-1.5 p-3">
           <h2 className="text-xl font-bold">{product.name}</h2>
           <p className="text-sm text-slate-600">{product.description}</p>
-          <p className="text-3xl font-extrabold text-indigo-700">
-            {new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: product.currency,
-            }).format(product.price)}
-          </p>
-          {product.wholesalePrice != null ? (
-            <p className="text-lg font-semibold text-slate-500">
-              Wholesale:{" "}
-              {new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: product.currency,
-              }).format(product.wholesalePrice)}
-            </p>
-          ) : null}
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-indigo-400">
+                Retail
+              </span>
+              <span className="text-3xl font-extrabold text-indigo-700">
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: product.currency,
+                }).format(product.price)}
+              </span>
+            </div>
+            {product.wholesalePrice != null ? (
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Wholesale
+                </span>
+                <span className="text-3xl font-extrabold text-gray-700">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: product.currency,
+                  }).format(product.wholesalePrice)}
+                </span>
+              </div>
+            ) : null}
+          </div>
           <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
             <p>
               <strong>SKU:</strong> {product.sku}
