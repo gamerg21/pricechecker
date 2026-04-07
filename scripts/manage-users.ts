@@ -137,33 +137,35 @@ function removeUser(username: string) {
 
 const [command, arg] = process.argv.slice(2);
 
-switch (command) {
-  case "add":
-    if (!arg) {
-      console.error("Usage: npm run users add <username>");
+(async () => {
+  switch (command) {
+    case "add":
+      if (!arg) {
+        console.error("Usage: npm run users add <username>");
+        process.exit(1);
+      }
+      await addUser(arg);
+      break;
+
+    case "list":
+      listUsers();
+      break;
+
+    case "remove":
+      if (!arg) {
+        console.error("Usage: npm run users remove <username>");
+        process.exit(1);
+      }
+      removeUser(arg);
+      break;
+
+    default:
+      console.error(
+        "Usage:\n" +
+          "  npm run users add <username>\n" +
+          "  npm run users list\n" +
+          "  npm run users remove <username>",
+      );
       process.exit(1);
-    }
-    await addUser(arg);
-    break;
-
-  case "list":
-    listUsers();
-    break;
-
-  case "remove":
-    if (!arg) {
-      console.error("Usage: npm run users remove <username>");
-      process.exit(1);
-    }
-    removeUser(arg);
-    break;
-
-  default:
-    console.error(
-      "Usage:\n" +
-        "  npm run users add <username>\n" +
-        "  npm run users list\n" +
-        "  npm run users remove <username>",
-    );
-    process.exit(1);
-}
+  }
+})();
