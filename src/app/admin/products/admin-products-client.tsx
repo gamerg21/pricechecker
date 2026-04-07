@@ -121,6 +121,12 @@ export function AdminProductsClient() {
           </div>
           <nav className="flex flex-wrap gap-2 text-sm">
             <Link
+              href="/admin/upload"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              CSV import
+            </Link>
+            <Link
               href="/admin/activity"
               className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
             >
