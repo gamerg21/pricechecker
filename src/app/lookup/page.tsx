@@ -3,128 +3,28 @@
 import Image from "next/image";
 import {
   ChangeEvent,
-  useCallback,
   KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
+import {
+  ProductDetail,
+  initialLookupState,
+  type LookupState,
+  type ProductRecord,
+} from "@/components/product-detail";
+import { BarcodeCameraScanner } from "@/components/barcode-camera-scanner";
 
-type ProductRecord = {
-  id: string;
-  barcode: string;
-  sku: string;
-  name: string;
-  description: string;
-  price: number;
-  wholesalePrice: number | null;
-  currency: string;
-  imageUrl: string;
-  updatedAt: string;
-};
-
-type LookupState = {
-  loading: boolean;
-  error: string | null;
-  product: ProductRecord | null;
-};
-
-const initialState: LookupState = {
-  loading: false,
-  error: null,
-  product: null,
-};
-
-function hasProductImage(url: string): boolean {
-  return url.trim().length > 0;
-}
-
-function ProductDetail({
-  product,
-  updatedAtLabel,
-}: {
-  product: ProductRecord;
-  updatedAtLabel: string | null;
-}) {
-  const showImage = hasProductImage(product.imageUrl);
-  return (
-    <section className="overflow-hidden rounded-xl border border-slate-200">
-      <div
-        className={
-          showImage
-            ? "grid grid-cols-[minmax(8.5rem,14rem)_1fr]"
-            : "grid grid-cols-1"
-        }
-      >
-        {showImage ? (
-          <div className="relative min-h-40 bg-slate-200">
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              fill
-              sizes="40vw"
-              className="object-cover"
-              priority
-              unoptimized={
-                !product.imageUrl.startsWith("https://images.unsplash.com")
-              }
-            />
-          </div>
-        ) : null}
-        <div className="space-y-1.5 p-3">
-          <h2 className="text-xl font-bold">{product.name}</h2>
-          <p className="text-sm text-slate-600">{product.description}</p>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-indigo-400">
-                Retail
-              </span>
-              <span className="text-3xl font-extrabold text-indigo-700">
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: product.currency,
-                }).format(product.price)}
-              </span>
-            </div>
-            {product.wholesalePrice != null ? (
-              <div>
-                <span className="block text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Wholesale
-                </span>
-                <span className="text-3xl font-extrabold text-gray-700">
-                  {new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: product.currency,
-                  }).format(product.wholesalePrice)}
-                </span>
-              </div>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
-            <p>
-              <strong>SKU:</strong> {product.sku}
-            </p>
-            <p>
-              <strong>Barcode:</strong> {product.barcode}
-            </p>
-            {updatedAtLabel ? (
-              <p>
-                <strong>Last Sync:</strong> {updatedAtLabel}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export default function Home() {
+export default function LookupPage() {
   const [barcode, setBarcode] = useState("");
-  const [state, setState] = useState<LookupState>(initialState);
+  const [state, setState] = useState<LookupState>(initialLookupState);
+  const [cameraActive, setCameraActive] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const cooldownRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -171,11 +71,7 @@ export default function Home() {
 
       const body = (await response.json()) as { product: ProductRecord };
       if (requestId !== requestIdRef.current || !mountedRef.current) return;
-      setState({
-        loading: false,
-        error: null,
-        product: body.product,
-      });
+      setState({ loading: false, error: null, product: body.product });
     } catch {
       if (requestId !== requestIdRef.current || !mountedRef.current) return;
       setState({
@@ -186,15 +82,26 @@ export default function Home() {
     }
   }, []);
 
+  const handleCameraScan = useCallback(
+    (decodedText: string) => {
+      if (cooldownRef.current) return;
+      cooldownRef.current = true;
+      setTimeout(() => {
+        cooldownRef.current = false;
+      }, 1500);
+
+      setBarcode(decodedText);
+      setCameraActive(false);
+      void runLookup(decodedText);
+    },
+    [runLookup],
+  );
+
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== "Enter") {
-      return;
-    }
+    if (event.key !== "Enter") return;
     event.preventDefault();
     const normalized = barcode.trim();
-    if (!normalized) {
-      return;
-    }
+    if (!normalized) return;
     setBarcode("");
     void runLookup(normalized);
   }
@@ -202,17 +109,13 @@ export default function Home() {
   function handleBarcodeChange(event: ChangeEvent<HTMLInputElement>) {
     const nextValue = event.target.value;
     setBarcode(nextValue);
-
     if (!nextValue.trim()) {
-      setState(initialState);
+      setState(initialLookupState);
     }
   }
 
   return (
-    <div
-      className="min-h-svh bg-slate-100 p-3 font-sans text-slate-900"
-      data-kiosk
-    >
+    <div className="min-h-svh bg-slate-100 p-3 font-sans text-slate-900">
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl bg-white p-4 shadow-md">
         <header className="space-y-1">
           <div className="flex items-center gap-3">
@@ -224,14 +127,20 @@ export default function Home() {
               className="h-12 w-12 shrink-0"
               priority
             />
-            <h1 className="text-2xl font-bold tracking-tight">Price Checker</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Price Checker
+            </h1>
           </div>
           <p className="text-sm text-slate-600">
-            Scan product barcode to view item details and price.
+            Scan a barcode with the camera, a hardware scanner, or type one in
+            manually.
           </p>
         </header>
 
-        <form className="space-y-2" onSubmit={(event) => event.preventDefault()}>
+        <form
+          className="space-y-2"
+          onSubmit={(event) => event.preventDefault()}
+        >
           <label className="text-sm font-semibold" htmlFor="barcode">
             Barcode
           </label>
@@ -262,10 +171,29 @@ export default function Home() {
               {state.loading ? "Checking..." : "Look Up"}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
-            Scan a barcode or type one in and press Look Up.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className={`flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                cameraActive
+                  ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                  : "border-slate-300 text-slate-700 hover:bg-slate-100"
+              }`}
+              type="button"
+              onClick={() => setCameraActive((prev) => !prev)}
+            >
+              <CameraIcon active={cameraActive} />
+              {cameraActive ? "Stop Camera" : "Scan with Camera"}
+            </button>
+            <span className="self-center text-xs text-slate-500">
+              Scan a barcode or type one in and press Look Up.
+            </span>
+          </div>
         </form>
+
+        <BarcodeCameraScanner
+          active={cameraActive}
+          onScan={handleCameraScan}
+        />
 
         {state.error ? (
           <section className="rounded-xl border border-rose-200 bg-rose-50 p-3">
@@ -281,5 +209,24 @@ export default function Home() {
         ) : null}
       </main>
     </div>
+  );
+}
+
+function CameraIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={`h-4 w-4 ${active ? "text-indigo-600" : "text-slate-500"}`}
+    >
+      <path d="M1 8a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 8.07 3h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 16.07 6H17a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8Z" />
+      <path
+        fillRule="evenodd"
+        d="M10 15.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0-1.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+        clipRule="evenodd"
+        fill={active ? "#4f46e5" : "white"}
+      />
+    </svg>
   );
 }
