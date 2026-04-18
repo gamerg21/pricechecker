@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0 - 2026-04-18
+
+### Added
+- Added a global footer version label so every page displays the current app version.
+
+### Changed
+- Finalized the initial stable release as version `1.0.0`.
+- Improved barcode lookup flow by clearing the input after each scan on both kiosk lookup pages.
+
+### Notes
+- This release promotes the app from beta to the first stable `1.0.0` release.
+- Previous release: `v0.2.0-beta`
+
 ## 0.2.0-beta - 2026-04-07
 
 ### Added
