@@ -34,6 +34,14 @@ export default function Home() {
     ? new Date(state.product.updatedAt).toLocaleString()
     : null;
 
+  const clearBarcodeInput = useCallback(() => {
+    setBarcode("");
+    if (inputRef.current) {
+      inputRef.current.value = "";
+      inputRef.current.focus();
+    }
+  }, []);
+
   const runLookup = useCallback(async (rawBarcode: string) => {
     const normalizedBarcode = rawBarcode.trim();
     if (!normalizedBarcode) {
@@ -80,20 +88,30 @@ export default function Home() {
         error: "Lookup failed. Check local server connectivity.",
         product: null,
       });
+    } finally {
+      inputRef.current?.focus();
     }
   }, []);
+
+  const submitBarcode = useCallback(
+    (rawBarcode: string) => {
+      const normalized = rawBarcode.trim();
+      if (!normalized) {
+        return;
+      }
+
+      clearBarcodeInput();
+      void runLookup(normalized);
+    },
+    [clearBarcodeInput, runLookup],
+  );
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key !== "Enter") {
       return;
     }
     event.preventDefault();
-    const normalized = barcode.trim();
-    if (!normalized) {
-      return;
-    }
-    setBarcode("");
-    void runLookup(normalized);
+    submitBarcode(barcode);
   }
 
   function handleBarcodeChange(event: ChangeEvent<HTMLInputElement>) {
@@ -150,10 +168,7 @@ export default function Home() {
               type="submit"
               onClick={(e) => {
                 e.preventDefault();
-                const normalized = barcode.trim();
-                if (!normalized) return;
-                setBarcode("");
-                void runLookup(normalized);
+                submitBarcode(barcode);
               }}
             >
               {state.loading ? "Checking..." : "Look Up"}
