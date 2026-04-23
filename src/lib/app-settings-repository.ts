@@ -3,6 +3,7 @@ import db from "@/lib/db";
 const SCREENSAVER_ENABLED_KEY = "kioskScreensaverEnabled";
 const KIOSK_IDLE_RESET_MS_KEY = "kioskIdleResetMs";
 const KIOSK_BALLOONS_ENABLED_KEY = "kioskBalloonsEnabled";
+const KIOSK_SCREENSAVER_IMAGE_UPLOADED_AT_KEY = "kioskScreensaverImageUploadedAt";
 const DEFAULT_KIOSK_IDLE_RESET_MS = 120_000;
 
 type SettingRow = {
@@ -61,4 +62,23 @@ export function isKioskBalloonsEnabled(): boolean {
 
 export function setKioskBalloonsEnabled(enabled: boolean): void {
   upsertSettingStmt.run(KIOSK_BALLOONS_ENABLED_KEY, enabled ? "true" : "false");
+}
+
+export function getKioskScreensaverImageUploadedAt(): number {
+  const row = getSettingStmt.get(KIOSK_SCREENSAVER_IMAGE_UPLOADED_AT_KEY) as
+    | SettingRow
+    | undefined;
+  if (!row) {
+    return 0;
+  }
+
+  const parsed = Number.parseInt(row.value, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function setKioskScreensaverImageUploadedAt(uploadedAt: number): void {
+  upsertSettingStmt.run(
+    KIOSK_SCREENSAVER_IMAGE_UPLOADED_AT_KEY,
+    String(uploadedAt),
+  );
 }

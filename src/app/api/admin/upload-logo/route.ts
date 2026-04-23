@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { appendApiActivity } from "@/lib/api-activity-repository";
+import { setKioskScreensaverImageUploadedAt } from "@/lib/app-settings-repository";
 
 const ROUTE = "/api/admin/upload-logo";
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -75,6 +76,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not save image" }, { status: 500 });
   }
 
+  const uploadedAt = Date.now();
+  setKioskScreensaverImageUploadedAt(uploadedAt);
+
   logUpload(200, "success", "Kiosk logo uploaded", {
     fileName: file.name,
     mimeType: file.type,
@@ -85,6 +89,6 @@ export async function POST(request: Request) {
     success: true,
     fileName: file.name,
     assetPath: "/kiosk-screensaver.png",
-    uploadedAt: Date.now(),
+    uploadedAt,
   });
 }

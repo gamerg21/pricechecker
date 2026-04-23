@@ -16,6 +16,7 @@ export default function Home() {
   const [screensaverImageSrc, setScreensaverImageSrc] = useState(
     DEFAULT_SCREENSAVER_IMAGE,
   );
+  const [screensaverImageVersion, setScreensaverImageVersion] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const balloons = [
@@ -49,12 +50,14 @@ export default function Home() {
           screensaverEnabled: boolean;
           idleResetMs: number;
           balloonsEnabled: boolean;
+          screensaverImageVersion?: number;
         };
 
         if (cancelled) return;
         setScreensaverEnabled(body.screensaverEnabled);
         setIdleResetMs(body.idleResetMs);
         setBalloonsEnabled(body.balloonsEnabled);
+        setScreensaverImageVersion(body.screensaverImageVersion ?? 0);
       } catch {
         if (cancelled) return;
         setScreensaverEnabled(true);
@@ -142,12 +145,18 @@ export default function Home() {
           <div className="flex w-full flex-col items-center gap-8 px-4 py-8 text-center sm:gap-10 sm:px-8 sm:py-10">
             <div className="flex min-h-[28svh] w-full items-center justify-center px-2 py-4 sm:min-h-[34svh]">
               <Image
-                src={screensaverImageSrc}
+                src={
+                  screensaverImageVersion > 0 &&
+                  screensaverImageSrc === DEFAULT_SCREENSAVER_IMAGE
+                    ? `${screensaverImageSrc}?v=${screensaverImageVersion}`
+                    : screensaverImageSrc
+                }
                 alt="Business logo"
                 width={520}
                 height={260}
                 className="h-auto max-h-[28svh] w-auto max-w-[92vw] object-contain sm:max-h-[34svh] sm:max-w-[80vw]"
                 priority
+                unoptimized
                 onError={() => {
                   if (screensaverImageSrc !== FALLBACK_SCREENSAVER_IMAGE) {
                     setScreensaverImageSrc(FALLBACK_SCREENSAVER_IMAGE);
