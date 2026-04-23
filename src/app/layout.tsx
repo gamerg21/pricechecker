@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AppVersionFooter } from "@/components/app-version-footer";
 import "./globals.css";
 
 const APP_VERSION = "1.0.0";
@@ -45,11 +46,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} relative h-full overflow-x-hidden overscroll-none antialiased`}
       >
         {children}
-        <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center">
-          <p className="text-[10px] tracking-[0.2em] text-slate-500/80">
-            Version {APP_VERSION}
-          </p>
-        </footer>
+        <AppVersionFooter version={APP_VERSION} />
       </body>
     </html>
   );

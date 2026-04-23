@@ -20,10 +20,10 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
-      // Login page: bounce logged-in users to /admin/products
+      // Login page: bounce logged-in users to /admin
       if (isLoginPage) {
         return isLoggedIn
-          ? Response.redirect(new URL("/admin/products", nextUrl))
+          ? Response.redirect(new URL("/admin", nextUrl))
           : true;
       }
 

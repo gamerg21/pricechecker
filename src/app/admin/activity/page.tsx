@@ -41,6 +41,12 @@ export default function AdminActivityPage() {
           </div>
           <nav className="flex flex-wrap gap-2 text-sm">
             <Link
+              href="/admin"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Admin home
+            </Link>
+            <Link
               href="/admin/products"
               className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
             >
@@ -51,6 +57,12 @@ export default function AdminActivityPage() {
               className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
             >
               CSV import
+            </Link>
+            <Link
+              href="/admin/settings"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Settings
             </Link>
             <Link
               href="/"

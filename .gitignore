@@ -45,6 +45,9 @@ yarn-error.log*
 *.db-wal
 *.db-shm
 
+# uploaded kiosk screensaver logo (user-specific, not for public repo)
+/public/kiosk-screensaver.*
+
 # vercel
 .vercel
 

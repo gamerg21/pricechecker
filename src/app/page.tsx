@@ -1,196 +1,194 @@
 "use client";
 
 import Image from "next/image";
-import {
-  ChangeEvent,
-  useCallback,
-  KeyboardEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import {
-  ProductDetail,
-  initialLookupState,
-  type ProductRecord,
-  type LookupState,
-} from "@/components/product-detail";
+import { useEffect, useRef, useState } from "react";
+import { PriceCheckerShell } from "@/components/price-checker-shell";
+
+const DEFAULT_SCREENSAVER_IMAGE = "/kiosk-screensaver.png";
+const FALLBACK_SCREENSAVER_IMAGE = "/logo.svg";
 
 export default function Home() {
-  const [barcode, setBarcode] = useState("");
-  const [state, setState] = useState<LookupState>(initialLookupState);
+  const [screensaverEnabled, setScreensaverEnabled] = useState(true);
+  const [balloonsEnabled, setBalloonsEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [idleResetMs, setIdleResetMs] = useState(120_000);
+  const [pendingBarcode, setPendingBarcode] = useState("");
+  const [screensaverImageSrc, setScreensaverImageSrc] = useState(
+    DEFAULT_SCREENSAVER_IMAGE,
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const requestIdRef = useRef(0);
-  const mountedRef = useRef(true);
+
+  const balloons = [
+    { left: "6%", color: "#f87171", delay: "0s", duration: "14s", size: 56 },
+    { left: "18%", color: "#fbbf24", delay: "3s", duration: "18s", size: 44 },
+    { left: "30%", color: "#34d399", delay: "6s", duration: "16s", size: 64 },
+    { left: "44%", color: "#60a5fa", delay: "1.5s", duration: "20s", size: 50 },
+    { left: "58%", color: "#a78bfa", delay: "4.5s", duration: "15s", size: 58 },
+    { left: "72%", color: "#f472b6", delay: "2s", duration: "19s", size: 48 },
+    { left: "84%", color: "#22d3ee", delay: "7s", duration: "17s", size: 54 },
+    { left: "92%", color: "#fb923c", delay: "5s", duration: "21s", size: 46 },
+  ];
 
   useEffect(() => {
-    mountedRef.current = true;
+    if (screensaverEnabled) {
+      inputRef.current?.focus();
+    }
+  }, [screensaverEnabled]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/kiosk-settings", { method: "GET" });
+        if (!response.ok) {
+          throw new Error("Failed to load kiosk settings");
+        }
+
+        const body = (await response.json()) as {
+          screensaverEnabled: boolean;
+          idleResetMs: number;
+          balloonsEnabled: boolean;
+        };
+
+        if (cancelled) return;
+        setScreensaverEnabled(body.screensaverEnabled);
+        setIdleResetMs(body.idleResetMs);
+        setBalloonsEnabled(body.balloonsEnabled);
+      } catch {
+        if (cancelled) return;
+        setScreensaverEnabled(true);
+        setIdleResetMs(120_000);
+      } finally {
+        if (!cancelled) {
+          setSettingsLoaded(true);
+        }
+      }
+    }
+
+    void loadSettings();
+
     return () => {
-      mountedRef.current = false;
+      cancelled = true;
     };
   }, []);
 
-  const updatedAtLabel = state.product?.updatedAt
-    ? new Date(state.product.updatedAt).toLocaleString()
-    : null;
-
-  const clearBarcodeInput = useCallback(() => {
-    setBarcode("");
-    if (inputRef.current) {
-      inputRef.current.value = "";
-      inputRef.current.focus();
-    }
-  }, []);
-
-  const runLookup = useCallback(async (rawBarcode: string) => {
-    const normalizedBarcode = rawBarcode.trim();
-    if (!normalizedBarcode) {
-      if (mountedRef.current) {
-        setState({ loading: false, error: null, product: null });
-      }
-      return;
-    }
-
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    if (mountedRef.current) {
-      setState((prev) => ({ ...prev, loading: true, error: null }));
-    }
-
-    try {
-      const response = await fetch(
-        `/api/products?barcode=${encodeURIComponent(normalizedBarcode)}`,
-        { method: "GET" },
-      );
-
-      if (!response.ok) {
-        if (requestId !== requestIdRef.current || !mountedRef.current) return;
-        const body = (await response.json()) as { error?: string };
-        setState({
-          loading: false,
-          error: body.error ?? "Unable to find product.",
-          product: null,
-        });
-        return;
-      }
-
-      const body = (await response.json()) as { product: ProductRecord };
-      if (requestId !== requestIdRef.current || !mountedRef.current) return;
-      setState({
-        loading: false,
-        error: null,
-        product: body.product,
-      });
-    } catch {
-      if (requestId !== requestIdRef.current || !mountedRef.current) return;
-      setState({
-        loading: false,
-        error: "Lookup failed. Check local server connectivity.",
-        product: null,
-      });
-    } finally {
-      inputRef.current?.focus();
-    }
-  }, []);
-
-  const submitBarcode = useCallback(
-    (rawBarcode: string) => {
-      const normalized = rawBarcode.trim();
-      if (!normalized) {
-        return;
-      }
-
-      clearBarcodeInput();
-      void runLookup(normalized);
-    },
-    [clearBarcodeInput, runLookup],
-  );
-
-  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    submitBarcode(barcode);
+  if (!settingsLoaded) {
+    return null;
   }
 
-  function handleBarcodeChange(event: ChangeEvent<HTMLInputElement>) {
-    const nextValue = event.target.value;
-    setBarcode(nextValue);
-
-    if (!nextValue.trim()) {
-      setState(initialLookupState);
-    }
+  if (!screensaverEnabled) {
+    return (
+      <PriceCheckerShell
+        initialBarcode={pendingBarcode}
+        showCameraControls={false}
+        idleResetMs={idleResetMs}
+        onLookupComplete={() => setPendingBarcode("")}
+        onIdleReset={() => {
+          setPendingBarcode("");
+          setScreensaverEnabled(true);
+        }}
+      />
+    );
   }
 
   return (
     <div
-      className="min-h-svh bg-slate-100 p-3 font-sans text-slate-900"
+      className="min-h-svh bg-white px-4 py-6 font-sans text-slate-900 sm:px-6 sm:py-8"
       data-kiosk
+      onPointerDown={() => inputRef.current?.focus()}
     >
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl bg-white p-4 shadow-md">
-        <header className="space-y-1">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/logo.svg"
-              alt=""
-              width={48}
-              height={48}
-              className="h-12 w-12 shrink-0"
-              priority
-            />
-            <h1 className="text-2xl font-bold tracking-tight">Price Checker</h1>
-          </div>
-          <p className="text-sm text-slate-600">
-            Scan product barcode to view item details and price.
-          </p>
-        </header>
-
-        <form className="space-y-2" onSubmit={(event) => event.preventDefault()}>
-          <label className="text-sm font-semibold" htmlFor="barcode">
-            Barcode
-          </label>
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              id="barcode"
-              name="barcode"
-              autoFocus
-              autoComplete="off"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base outline-none ring-indigo-500 focus:ring-2"
-              value={barcode}
-              onChange={handleBarcodeChange}
-              onKeyDown={handleInputKeyDown}
-              placeholder="Scan or type barcode here"
-            />
-            <button
-              className="flex min-w-24 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-              type="submit"
-              onClick={(e) => {
-                e.preventDefault();
-                submitBarcode(barcode);
-              }}
-            >
-              {state.loading ? "Checking..." : "Look Up"}
-            </button>
-          </div>
-          <p className="text-xs text-slate-500">
-            Scan a barcode or type one in and press Look Up.
-          </p>
-        </form>
-
-        {state.error ? (
-          <section className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-            <p className="text-rose-700">{state.error}</p>
-          </section>
-        ) : null}
-
-        {state.product ? (
-          <ProductDetail
-            product={state.product}
-            updatedAtLabel={updatedAtLabel}
+      {balloonsEnabled ? (
+        <div aria-hidden="true" className="kiosk-balloons">
+          {balloons.map((b, i) => (
+          <span
+            key={i}
+            className="kiosk-balloon"
+            style={{
+              left: b.left,
+              width: b.size,
+              height: b.size * 1.3,
+              background: `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.7), ${b.color} 55%, ${b.color})`,
+              animationDelay: b.delay,
+              animationDuration: b.duration,
+            }}
           />
-        ) : null}
+          ))}
+        </div>
+      ) : null}
+      <main className="flex min-h-[calc(100svh-3rem)] w-full flex-col justify-center sm:min-h-[calc(100svh-4rem)]">
+        <input
+          ref={inputRef}
+          id="barcode"
+          name="barcode"
+          autoFocus
+          autoComplete="off"
+          className="pointer-events-none absolute h-px w-px opacity-0"
+          value={pendingBarcode}
+          onChange={(event) => {
+            setPendingBarcode(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            if (!pendingBarcode.trim()) return;
+            setScreensaverEnabled(false);
+          }}
+          placeholder="Scan or type barcode here"
+          inputMode="none"
+        />
+
+        <section className="flex min-h-full w-full items-center justify-center bg-white">
+          <div className="flex w-full flex-col items-center gap-8 px-4 py-8 text-center sm:gap-10 sm:px-8 sm:py-10">
+            <div className="flex min-h-[28svh] w-full items-center justify-center px-2 py-4 sm:min-h-[34svh]">
+              <Image
+                src={screensaverImageSrc}
+                alt="Business logo"
+                width={520}
+                height={260}
+                className="h-auto max-h-[28svh] w-auto max-w-[92vw] object-contain sm:max-h-[34svh] sm:max-w-[80vw]"
+                priority
+                onError={() => {
+                  if (screensaverImageSrc !== FALLBACK_SCREENSAVER_IMAGE) {
+                    setScreensaverImageSrc(FALLBACK_SCREENSAVER_IMAGE);
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-3 sm:space-y-4">
+              <h1
+                className="font-semibold tracking-tight text-slate-900"
+                style={{ fontSize: "clamp(2.5rem, 8vw, 5.5rem)", lineHeight: 1 }}
+              >
+                Scan item below for price
+              </h1>
+              <div className="flex justify-center pt-2 text-slate-400">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="kiosk-arrow h-12 w-12 sm:h-16 sm:w-16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M12 4v13"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="m6 12 6 6 6-6"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );

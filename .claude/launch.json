@@ -4,8 +4,9 @@
     {
       "name": "pricechecker",
       "runtimeExecutable": "/usr/local/bin/node",
-      "runtimeArgs": ["node_modules/.bin/next", "dev", "-p", "3100", "--webpack"],
-      "port": 3100
+      "runtimeArgs": ["node_modules/.bin/next", "dev", "--webpack"],
+      "port": 3100,
+      "autoPort": true
     }
   ]
 }

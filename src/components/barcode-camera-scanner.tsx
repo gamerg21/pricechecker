@@ -19,7 +19,9 @@ export function BarcodeCameraScanner({
   const onScanRef = useRef(onScan);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
-  onScanRef.current = onScan;
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   const stopScanner = useCallback(async () => {
     if (scannerRef.current && runningRef.current) {
@@ -35,13 +37,14 @@ export function BarcodeCameraScanner({
   useEffect(() => {
     if (!active) {
       void stopScanner();
-      setPermissionDenied(false);
       return;
     }
 
     let cancelled = false;
 
     async function startScanner() {
+      setPermissionDenied(false);
+
       if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode(SCANNER_REGION_ID);
       }

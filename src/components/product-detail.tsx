@@ -44,17 +44,17 @@ export function ProductDetail({
       <div
         className={
           showImage
-            ? "grid grid-cols-[minmax(8.5rem,14rem)_1fr]"
+            ? "grid grid-cols-1 sm:grid-cols-[minmax(12rem,18rem)_1fr]"
             : "grid grid-cols-1"
         }
       >
         {showImage ? (
-          <div className="relative min-h-40 bg-slate-200">
+          <div className="relative min-h-56 bg-slate-200 sm:min-h-full">
             <Image
               src={product.imageUrl}
               alt={product.name}
               fill
-              sizes="40vw"
+              sizes="(max-width: 640px) 100vw, 40vw"
               className="object-cover"
               priority
               unoptimized={
@@ -63,15 +63,15 @@ export function ProductDetail({
             />
           </div>
         ) : null}
-        <div className="space-y-1.5 p-3">
-          <h2 className="text-xl font-bold">{product.name}</h2>
-          <p className="text-sm text-slate-600">{product.description}</p>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div className="space-y-3 p-4 sm:p-5">
+          <h2 className="text-2xl font-bold sm:text-3xl">{product.name}</h2>
+          <p className="text-base text-slate-600 sm:text-lg">{product.description}</p>
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
             <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-indigo-400">
+              <span className="block text-sm font-semibold uppercase tracking-wide text-indigo-400">
                 Retail
               </span>
-              <span className="text-3xl font-extrabold text-indigo-700">
+              <span className="text-4xl font-extrabold text-indigo-700 sm:text-5xl">
                 {new Intl.NumberFormat("en-US", {
                   style: "currency",
                   currency: product.currency,
@@ -80,10 +80,10 @@ export function ProductDetail({
             </div>
             {product.wholesalePrice != null ? (
               <div>
-                <span className="block text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <span className="block text-sm font-semibold uppercase tracking-wide text-gray-400">
                   Wholesale
                 </span>
-                <span className="text-3xl font-extrabold text-gray-700">
+                <span className="text-4xl font-extrabold text-gray-700 sm:text-5xl">
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
                     currency: product.currency,
@@ -92,7 +92,7 @@ export function ProductDetail({
               </div>
             ) : null}
           </div>
-          <div className="grid grid-cols-1 gap-1 text-sm text-slate-600">
+          <div className="grid grid-cols-1 gap-1 text-base text-slate-600 sm:text-lg">
             <p>
               <strong>SKU:</strong> {product.sku}
             </p>
