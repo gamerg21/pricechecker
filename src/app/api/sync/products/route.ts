@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { appendApiActivity } from "@/lib/api-activity-repository";
 import { ProductRecord } from "@/lib/mock-products";
-import { parseCeligoPayload } from "@/lib/celigo-mapper";
+import { celigoRecordToProduct, parseCeligoPayload } from "@/lib/celigo-mapper";
 import { normalizeImportBatch } from "@/lib/product-import-normalizer";
 import { getProductCount, upsertProducts } from "@/lib/products-repository";
 
@@ -60,6 +60,8 @@ function normalizePayload(body: SyncPayload): ProductRecord[] {
   if (Array.isArray(body.products)) {
     return body.products;
   }
+  const single = celigoRecordToProduct(body as Record<string, unknown>);
+  if (single) return [single];
   return [];
 }
 
