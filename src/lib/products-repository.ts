@@ -1,4 +1,4 @@
-import db from "@/lib/db";
+import db, { usDateToEpoch } from "@/lib/db";
 import { ProductRecord } from "@/lib/mock-products";
 
 type ProductRow = {
@@ -12,6 +12,7 @@ type ProductRow = {
   currency: string;
   image_url: string;
   updated_at: string;
+  updated_at_ts: number | null;
 };
 
 function rowToProduct(row: ProductRow): ProductRecord {
@@ -30,8 +31,8 @@ function rowToProduct(row: ProductRow): ProductRecord {
 }
 
 const insertStmt = db.prepare(`
-  INSERT INTO products (id, barcode, sku, name, description, price, wholesale_price, currency, image_url, updated_at)
-  VALUES (@id, @barcode, @sku, @name, @description, @price, @wholesalePrice, @currency, @imageUrl, @updatedAt);
+  INSERT INTO products (id, barcode, sku, name, description, price, wholesale_price, currency, image_url, updated_at, updated_at_ts)
+  VALUES (@id, @barcode, @sku, @name, @description, @price, @wholesalePrice, @currency, @imageUrl, @updatedAt, @updatedAtTs);
 `);
 
 const updateByIdStmt = db.prepare(`
@@ -44,7 +45,8 @@ const updateByIdStmt = db.prepare(`
       wholesale_price = @wholesalePrice,
       currency = @currency,
       image_url = @imageUrl,
-      updated_at = @updatedAt
+      updated_at = @updatedAt,
+      updated_at_ts = @updatedAtTs
   WHERE id = @id;
 `);
 
@@ -58,7 +60,8 @@ const updateByBarcodeStmt = db.prepare(`
       wholesale_price = @wholesalePrice,
       currency = @currency,
       image_url = @imageUrl,
-      updated_at = @updatedAt
+      updated_at = @updatedAt,
+      updated_at_ts = @updatedAtTs
   WHERE barcode = @barcode;
 `);
 
@@ -83,49 +86,53 @@ const countSearchStmt = db.prepare(`
      OR name LIKE @pat ESCAPE '\\'
 `);
 
-const listPageFirstStmt = db.prepare(`
-  SELECT * FROM products
-  ORDER BY updated_at DESC, name ASC, id ASC
-  LIMIT @limit
-`);
+export type ProductSortKey =
+  | "barcode"
+  | "sku"
+  | "name"
+  | "price"
+  | "wholesale"
+  | "updatedAt";
 
-const listPageAfterStmt = db.prepare(`
-  SELECT * FROM products
-  WHERE updated_at < @cursorUpdatedAt
-     OR (updated_at = @cursorUpdatedAt AND name > @cursorName)
-     OR (updated_at = @cursorUpdatedAt AND name = @cursorName AND id > @cursorId)
-  ORDER BY updated_at DESC, name ASC, id ASC
-  LIMIT @limit
-`);
+export type SortDirection = "asc" | "desc";
 
-const listSearchFirstStmt = db.prepare(`
-  SELECT * FROM products
-  WHERE barcode LIKE @pat ESCAPE '\\'
-     OR sku LIKE @pat ESCAPE '\\'
-     OR name LIKE @pat ESCAPE '\\'
-  ORDER BY updated_at DESC, name ASC, id ASC
-  LIMIT @limit
-`);
-
-const listSearchAfterStmt = db.prepare(`
-  SELECT * FROM products
-  WHERE (barcode LIKE @pat ESCAPE '\\'
-     OR sku LIKE @pat ESCAPE '\\'
-     OR name LIKE @pat ESCAPE '\\')
-    AND (
-      updated_at < @cursorUpdatedAt
-      OR (updated_at = @cursorUpdatedAt AND name > @cursorName)
-      OR (updated_at = @cursorUpdatedAt AND name = @cursorName AND id > @cursorId)
-    )
-  ORDER BY updated_at DESC, name ASC, id ASC
-  LIMIT @limit
-`);
-
-export type ProductListCursor = {
-  updatedAt: string;
-  name: string;
-  id: string;
+/** Whitelist mapping API sort keys -> physical columns (prevents SQL injection). */
+const SORT_COLUMNS: Record<ProductSortKey, string> = {
+  barcode: "barcode",
+  sku: "sku",
+  name: "name",
+  price: "price",
+  wholesale: "wholesale_price",
+  // updated_at is a US-format string; sort on the parsed epoch column instead.
+  updatedAt: "updated_at_ts",
 };
+
+/** Text columns sort case-insensitively (a-z feels natural regardless of case). */
+const TEXT_SORT_KEYS = new Set<ProductSortKey>(["barcode", "sku", "name"]);
+
+/** Nullable columns push NULLs to the bottom regardless of direction. */
+const NULLABLE_SORT_KEYS = new Set<ProductSortKey>(["wholesale", "updatedAt"]);
+
+export function isProductSortKey(v: string): v is ProductSortKey {
+  return Object.prototype.hasOwnProperty.call(SORT_COLUMNS, v);
+}
+
+/**
+ * Build a safe ORDER BY clause for the given sort key + direction.
+ * Column identifiers come from the SORT_COLUMNS whitelist, never user input.
+ * - text columns use COLLATE NOCASE
+ * - wholesale_price (nullable) always sorts NULLs last
+ * - id ASC is appended as a stable tiebreaker for deterministic paging
+ */
+function buildOrderBy(sortKey: ProductSortKey, sortDir: SortDirection): string {
+  const col = SORT_COLUMNS[sortKey];
+  const dir = sortDir === "asc" ? "ASC" : "DESC";
+  const collate = TEXT_SORT_KEYS.has(sortKey) ? " COLLATE NOCASE" : "";
+  const nullsLast = NULLABLE_SORT_KEYS.has(sortKey)
+    ? `(${col} IS NULL) ASC, `
+    : "";
+  return `ORDER BY ${nullsLast}${col}${collate} ${dir}, id ASC`;
+}
 
 function escapeLikePattern(raw: string): string {
   return raw.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
@@ -144,32 +151,38 @@ export function findProductByBarcode(barcode: string): ProductRecord | null {
 export function upsertProducts(products: ProductRecord[]) {
   const transaction = db.transaction((records: ProductRecord[]) => {
     for (const product of records) {
+      // Augment with the sortable epoch derived from the US-format updatedAt.
+      const row = { ...product, updatedAtTs: usDateToEpoch(product.updatedAt) };
       const existingById = findByIdStmt.get(product.id) as ProductRow | undefined;
       const existingByBarcode = findByBarcodeStmt.get(product.barcode) as ProductRow | undefined;
 
       if (existingById && existingByBarcode && existingById.id !== existingByBarcode.id) {
-        const preferIncomingId = product.updatedAt >= existingById.updated_at;
+        // Compare parsed timestamps, not raw US-format strings (which sort wrong).
+        // Missing timestamps are treated as oldest so any real date wins.
+        const incomingTs = row.updatedAtTs ?? -Infinity;
+        const existingTs = existingById.updated_at_ts ?? -Infinity;
+        const preferIncomingId = incomingTs >= existingTs;
         if (preferIncomingId) {
           deleteByBarcodeStmt.run(product.barcode);
-          updateByIdStmt.run(product);
+          updateByIdStmt.run(row);
         } else {
           deleteByIdStmt.run(product.id);
-          updateByBarcodeStmt.run(product);
+          updateByBarcodeStmt.run(row);
         }
         continue;
       }
 
       if (existingById) {
-        updateByIdStmt.run(product);
+        updateByIdStmt.run(row);
         continue;
       }
 
       if (existingByBarcode) {
-        updateByBarcodeStmt.run(product);
+        updateByBarcodeStmt.run(row);
         continue;
       }
 
-      insertStmt.run(product);
+      insertStmt.run(row);
     }
   });
   transaction(products);
@@ -184,16 +197,21 @@ const PAGE_LIMIT_MAX = 250;
 
 export function listProductsPage(options: {
   limit: number;
-  cursor?: ProductListCursor | null;
+  offset?: number;
   q?: string | null;
+  sortKey?: ProductSortKey;
+  sortDir?: SortDirection;
 }): {
   products: ProductRecord[];
-  nextCursor: ProductListCursor | null;
   totalMatched: number;
+  hasMore: boolean;
 } {
   const safeLimit = Math.max(1, Math.min(Math.floor(options.limit), PAGE_LIMIT_MAX));
+  const safeOffset = Math.max(0, Math.floor(options.offset ?? 0));
   const search = normalizeSearchQuery(options.q ?? "");
-  const cursor = options.cursor ?? null;
+  const sortKey = options.sortKey ?? "updatedAt";
+  const sortDir = options.sortDir ?? "desc";
+  const orderBy = buildOrderBy(sortKey, sortDir);
 
   const totalMatched = search
     ? (countSearchStmt.get({ pat: `%${escapeLikePattern(search)}%` }) as {
@@ -201,46 +219,24 @@ export function listProductsPage(options: {
       }).total
     : getProductCount();
 
-  const fetchLimit = safeLimit + 1;
-  const rows = (() => {
-    if (search) {
-      const pat = `%${escapeLikePattern(search)}%`;
-      if (cursor) {
-        return listSearchAfterStmt.all({
-          pat,
-          cursorUpdatedAt: cursor.updatedAt,
-          cursorName: cursor.name,
-          cursorId: cursor.id,
-          limit: fetchLimit,
-        }) as ProductRow[];
-      }
-      return listSearchFirstStmt.all({ pat, limit: fetchLimit }) as ProductRow[];
-    }
-    if (cursor) {
-      return listPageAfterStmt.all({
-        cursorUpdatedAt: cursor.updatedAt,
-        cursorName: cursor.name,
-        cursorId: cursor.id,
-        limit: fetchLimit,
-      }) as ProductRow[];
-    }
-    return listPageFirstStmt.all({ limit: fetchLimit }) as ProductRow[];
-  })();
+  // Column identifiers in orderBy come from a whitelist; limit/offset/pat are bound.
+  const whereClause = search
+    ? `WHERE barcode LIKE @pat ESCAPE '\\'
+         OR sku LIKE @pat ESCAPE '\\'
+         OR name LIKE @pat ESCAPE '\\'`
+    : "";
+  const sql = `SELECT * FROM products ${whereClause} ${orderBy} LIMIT @limit OFFSET @offset`;
+  const params: Record<string, unknown> = {
+    limit: safeLimit,
+    offset: safeOffset,
+  };
+  if (search) params.pat = `%${escapeLikePattern(search)}%`;
 
-  const hasMore = rows.length > safeLimit;
-  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows;
-  const products = pageRows.map(rowToProduct);
-  const last = pageRows[pageRows.length - 1];
-  const nextCursor: ProductListCursor | null =
-    hasMore && last
-      ? {
-          updatedAt: last.updated_at,
-          name: last.name,
-          id: last.id,
-        }
-      : null;
+  const rows = db.prepare(sql).all(params) as ProductRow[];
+  const products = rows.map(rowToProduct);
+  const hasMore = safeOffset + products.length < totalMatched;
 
-  return { products, nextCursor, totalMatched };
+  return { products, totalMatched, hasMore };
 }
 
 export function listProducts(limit = 100): ProductRecord[] {

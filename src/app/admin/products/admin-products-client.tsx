@@ -4,26 +4,47 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { logoutAction } from "../actions";
 import type { ProductRecord } from "@/lib/mock-products";
-import type { ProductListCursor } from "@/lib/products-repository";
+import type {
+  ProductSortKey,
+  SortDirection,
+} from "@/lib/products-repository";
 
 const PAGE_SIZE = 100;
 const DEBOUNCE_MS = 350;
 
 type ApiResponse = {
   products: ProductRecord[];
-  nextCursor: ProductListCursor | null;
   totalMatched: number;
+  hasMore: boolean;
 };
+
+const COLUMNS: { key: ProductSortKey; label: string; numeric?: boolean }[] = [
+  { key: "barcode", label: "Barcode" },
+  { key: "sku", label: "SKU" },
+  { key: "name", label: "Name" },
+  { key: "price", label: "Price", numeric: true },
+  { key: "wholesale", label: "Wholesale", numeric: true },
+  { key: "updatedAt", label: "Updated" },
+];
+
+/** Default direction when first clicking a column: text a-z, numbers/dates high-first. */
+function defaultDir(key: ProductSortKey): SortDirection {
+  return key === "updatedAt" || key === "price" || key === "wholesale"
+    ? "desc"
+    : "asc";
+}
 
 export function AdminProductsClient() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [products, setProducts] = useState<ProductRecord[]>([]);
-  const [nextCursor, setNextCursor] = useState<ProductListCursor | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [totalMatched, setTotalMatched] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<ProductSortKey>("updatedAt");
+  const [sortDir, setSortDir] = useState<SortDirection>("desc");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -37,11 +58,13 @@ export function AdminProductsClient() {
   }, [query]);
 
   const fetchPage = useCallback(
-    async (opts: { cursor: ProductListCursor | null; append: boolean }) => {
+    async (opts: { offset: number; append: boolean }) => {
       const params = new URLSearchParams();
       params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(opts.offset));
+      params.set("sort", sortKey);
+      params.set("dir", sortDir);
       if (debouncedQuery.trim()) params.set("q", debouncedQuery.trim());
-      if (opts.cursor) params.set("cursor", JSON.stringify(opts.cursor));
 
       const res = await fetch(`/api/admin/products?${params.toString()}`);
       if (!res.ok) {
@@ -53,10 +76,10 @@ export function AdminProductsClient() {
       } else {
         setProducts(data.products);
       }
-      setNextCursor(data.nextCursor);
+      setHasMore(data.hasMore);
       setTotalMatched(data.totalMatched);
     },
-    [debouncedQuery],
+    [debouncedQuery, sortKey, sortDir],
   );
 
   useEffect(() => {
@@ -64,9 +87,9 @@ export function AdminProductsClient() {
     setLoading(true);
     setError(null);
     setProducts([]);
-    setNextCursor(null);
+    setHasMore(false);
     setTotalMatched(null);
-    fetchPage({ cursor: null, append: false })
+    fetchPage({ offset: 0, append: false })
       .catch((e: unknown) => {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Failed to load products");
@@ -95,15 +118,24 @@ export function AdminProductsClient() {
   }, [products.length, totalMatched, debouncedQuery]);
 
   async function handleLoadMore() {
-    if (!nextCursor || loadingMore) return;
+    if (!hasMore || loadingMore) return;
     setLoadingMore(true);
     setError(null);
     try {
-      await fetchPage({ cursor: nextCursor, append: true });
+      await fetchPage({ offset: products.length, append: true });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load more");
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  function handleSort(key: ProductSortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(defaultDir(key));
     }
   }
 
@@ -191,12 +223,35 @@ export function AdminProductsClient() {
           <table className="w-full min-w-[900px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="p-2 font-semibold">Barcode</th>
-                <th className="p-2 font-semibold">SKU</th>
-                <th className="p-2 font-semibold">Name</th>
-                <th className="p-2 font-semibold">Price</th>
-                <th className="p-2 font-semibold">Wholesale</th>
-                <th className="p-2 font-semibold">Updated</th>
+                {COLUMNS.map((col) => {
+                  const active = col.key === sortKey;
+                  return (
+                    <th
+                      key={col.key}
+                      className="p-0 font-semibold"
+                      aria-sort={
+                        active
+                          ? sortDir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleSort(col.key)}
+                        className={`flex w-full items-center gap-1 p-2 text-left hover:bg-slate-100 ${
+                          col.numeric ? "justify-start" : ""
+                        } ${active ? "text-slate-900" : "text-slate-600"}`}
+                      >
+                        <span>{col.label}</span>
+                        <span className="text-xs text-slate-400">
+                          {active ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+                        </span>
+                      </button>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -242,7 +297,7 @@ export function AdminProductsClient() {
           </table>
         </div>
 
-        {nextCursor ? (
+        {hasMore ? (
           <div className="flex justify-center border-t border-slate-100 pt-4">
             <button
               type="button"
